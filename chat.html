@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport"
+      content="width=device-width, initial-scale=1">
+
+<title>Private Chat</title>
+
+<link rel="stylesheet" href="style.css">
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script src="config.js"></script>
+<script src="common.js"></script>
+
+</head>
+
+<body>
+
+<nav class="navbar">
+
+<div class="logo">Messages</div>
+
+<div class="nav-links">
+<a href="index.html">Home</a>
+<a href="users.html">Users</a>
+</div>
+
+</nav>
+
+<main class="container">
+
+<div class="card">
+
+<h1>Private Chat</h1>
+
+<p>
+Open this page with a user's ID:
+</p>
+
+<code>
+chat.html?user=USER_ID
+</code>
+
+</div>
+
+<div class="card">
+
+<div id="chat" class="chat-box">
+Loading...
+</div>
+
+<input
+    id="message"
+    maxlength="5000"
+    placeholder="Type a message...">
+
+<button
+    id="send"
+    class="btn">
+Send
+</button>
+
+</div>
+
+</main>
+
+<script>
+
+let currentUser;
+let otherUser;
+let conversation;
+
+async function initializeChat() {
+
+    currentUser =
+        await requireUser();
+
+    if (!currentUser) return;
+
+    const params =
+        new URLSearchParams(window.location.search);
+
+    const otherId =
+        params.get("user");
+
+    if (!otherId || otherId === currentUser.id) {
+
+        document.getElementById("chat").textContent =
+            "Select another user.";
+
+        return;
+    }
+
+    otherUser =
+        await getProfile(otherId);
+
+    if (!otherUser) {
+
+        document.getElementById("chat").textContent =
+            "User not found.";
+
+        return;
+    }
+
+    await getOrCreateConversation(
+        otherId
+    );
+
+    await loadMessages();
+
+    subscribeRealtime();
+}
+
+async function getOrCreateConversation(otherId) {
+
+    const { data: existing } =
+        await supabaseClient
+        .from("conversations")
+        .select("*")
+        .or(
+            `and(user_one.eq.${currentUser.id},user_two.eq.${otherId}),and(user_one.eq.${otherId},user_two.eq.${currentUser.id})`
+        )
+        .maybeSingle();
+
+    if (existing) {
+
+        conversation = existing;
+        return;
+    }
+
+    const { data, error } =
+        await supabaseClient
+        .from("conversations")
+        .insert({
+            user_one: currentUser.id,
+            user_two: otherId
+        })
+        .select()
+        .single();
+
+    if (error) {
+
+        console.error(error);
+        return;
+    }
+
+    conversation = data;
+}
+
+async function loadMessages() {
+
+    const { data, error } =
+        await supabaseClient
+        .from("messages")
+        .select(`
+            id,
+            sender_id,
+            content,
+            created_at
+        `)
+        .eq(
+            "conversation_id",
+            conversation.id
+        )
+        .order("created_at", {
+            ascending: true
+        });
+
+    if (error) {
+
+        console.error(error);
+        return;
+    }
+
+    renderMessages(data);
+}
+
+function renderMessages(messages) {
+
+    const chat =
+        document.getElementById("chat");
+
+    chat.innerHTML = "";
+
+    messages.forEach(message => {
+
+        const div =
+            document.createElement("div");
+
+        div.className =
+            "message" +
+            (
+                message.sender_id === currentUser.id
+                ? " mine"
+                : ""
+            );
+
+        div.innerHTML = `
+            <div>
+                ${escapeHTML(message.content)}
+            </div>
+
+            <small>
+                ${escapeHTML(formatDate(message.created_at))}
+            </small>
+        `;
+
+        chat.appendChild(div);
+    });
+
+    chat.scrollTop =
+        chat.scrollHeight;
+}
+
+async function sendMessage() {
+
+    const input =
+        document.getElementById("message");
+
+    const content =
+        input.value.trim();
+
+    if (!content) return;
+
+    const { error } =
+        await supabaseClient
+        .from("messages")
+        .insert({
+            conversation_id:
+                conversation.id,
+
+            sender_id:
+                currentUser.id,
+
+            content
+        });
+
+    if (error) {
+
+        console.error(error);
+        return;
+    }
+
+    input.value = "";
+}
+
+function subscribeRealtime() {
+
+    supabaseClient
+    .channel(
+        "conversation-" +
+        conversation.id
+    )
+    .on(
+        "postgres_changes",
+        {
+            event: "INSERT",
+            schema: "public",
+            table: "messages",
+            filter:
+                `conversation_id=eq.${conversation.id}`
+        },
+        payload => {
+
+            loadMessages();
+        }
+    )
+    .subscribe();
+}
+
+document
+.getElementById("send")
+.addEventListener(
+    "click",
+    sendMessage
+);
+
+document
+.getElementById("message")
+.addEventListener(
+    "keydown",
+    event => {
+
+        if (event.key === "Enter") {
+            sendMessage();
+        }
+
+    }
+);
+
+initializeChat();
+
+</script>
+
+</body>
+</html>
