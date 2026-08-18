@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport"
+      content="width=device-width, initial-scale=1">
+
+<title>Create Post</title>
+
+<link rel="stylesheet" href="style.css">
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script src="config.js"></script>
+<script src="common.js"></script>
+
+</head>
+
+<body>
+
+<nav class="navbar">
+
+<div class="logo">MyBlog</div>
+
+<div class="nav-links">
+<a href="index.html">Home</a>
+<a href="profile.html">Profile</a>
+</div>
+
+</nav>
+
+<main class="container">
+
+<div class="card">
+
+<h1>Create Post</h1>
+
+<div id="message"></div>
+
+<input
+    id="title"
+    maxlength="200"
+    placeholder="Post title">
+
+<textarea
+    id="content"
+    maxlength="50000"
+    placeholder="Write your article..."></textarea>
+
+<button class="btn" id="publish">
+    Publish
+</button>
+
+</div>
+
+</main>
+
+<script>
+
+let currentUser;
+
+async function initialize() {
+
+    currentUser = await requireUser();
+
+    if (!currentUser) return;
+}
+
+initialize();
+
+document
+.getElementById("publish")
+.addEventListener("click", async () => {
+
+    const title =
+        document.getElementById("title")
+        .value.trim();
+
+    const content =
+        document.getElementById("content")
+        .value.trim();
+
+    const message =
+        document.getElementById("message");
+
+    if (!title || !content) {
+
+        message.innerHTML =
+            '<div class="error">Title and content are required.</div>';
+
+        return;
+    }
+
+    const { error } =
+        await supabaseClient
+        .from("posts")
+        .insert({
+            author_id: currentUser.id,
+            title,
+            content
+        });
+
+    if (error) {
+
+        message.innerHTML =
+            `<div class="error">${escapeHTML(error.message)}</div>`;
+
+        return;
+    }
+
+    window.location.href = "index.html";
+});
+
+</script>
+
+</body>
+</html>
