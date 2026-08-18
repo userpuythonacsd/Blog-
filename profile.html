@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport"
+      content="width=device-width, initial-scale=1">
+
+<title>Profile</title>
+
+<link rel="stylesheet" href="style.css">
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script src="config.js"></script>
+<script src="common.js"></script>
+
+</head>
+
+<body>
+
+<nav class="navbar">
+
+<div class="logo">MyBlog</div>
+
+<div class="nav-links">
+<a href="index.html">Home</a>
+<a href="users.html">Users</a>
+<a href="chat.html">Messages</a>
+<a href="public-chat.html">Public Chat</a>
+</div>
+
+</nav>
+
+<main class="container">
+
+<div id="profile">
+Loading...
+</div>
+
+<div id="posts">
+</div>
+
+</main>
+
+<script>
+
+async function loadProfile() {
+
+    const params =
+        new URLSearchParams(window.location.search);
+
+    const requestedId =
+        params.get("id");
+
+    const currentUser =
+        await getCurrentUser();
+
+    const userId =
+        requestedId ||
+        currentUser?.id;
+
+    if (!userId) {
+
+        window.location.href =
+            "login.html";
+
+        return;
+    }
+
+    const profile =
+        await getProfile(userId);
+
+    if (!profile) {
+
+        document.getElementById("profile").innerHTML =
+            "<div class='error'>Profile not found.</div>";
+
+        return;
+    }
+
+    document.getElementById("profile").innerHTML = `
+
+        <div class="card profile-header">
+
+            ${
+                profile.avatar_url
+                ?
+                `<img class="avatar"
+                      src="${escapeHTML(profile.avatar_url)}"
+                      alt="Avatar">`
+                :
+                `<div class="avatar"></div>`
+            }
+
+            <div>
+
+                <h1>
+                    ${escapeHTML(profile.display_name)}
+                </h1>
+
+                <div class="meta">
+                    @${escapeHTML(profile.username)}
+                </div>
+
+                <p>
+                    ${escapeHTML(profile.bio)}
+                </p>
+
+            </div>
+
+        </div>
+    `;
+
+    const { data: posts } =
+        await supabaseClient
+        .from("posts")
+        .select("*")
+        .eq("author_id", userId)
+        .order("created_at", {
+            ascending: false
+        });
+
+    const postsContainer =
+        document.getElementById("posts");
+
+    postsContainer.innerHTML =
+        "<h2>Posts</h2>";
+
+    posts.forEach(post => {
+
+        const article =
+            document.createElement("article");
+
+        article.className =
+            "card";
+
+        article.innerHTML = `
+
+            <h2>
+                ${escapeHTML(post.title)}
+            </h2>
+
+            <div class="meta">
+                ${escapeHTML(formatDate(post.created_at))}
+            </div>
+
+            <div class="post-content">
+                ${escapeHTML(post.content)}
+            </div>
+
+        `;
+
+        postsContainer.appendChild(article);
+    });
+}
+
+loadProfile();
+
+</script>
+
+</body>
+</html>
