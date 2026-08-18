@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport"
+      content="width=device-width, initial-scale=1">
+
+<title>Login</title>
+
+<link rel="stylesheet" href="style.css">
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+
+</head>
+
+<body>
+
+<div class="auth-box card">
+
+<h1>Login</h1>
+
+<div id="message"></div>
+
+<input
+    id="email"
+    type="email"
+    placeholder="Email">
+
+<input
+    id="password"
+    type="password"
+    placeholder="Password">
+
+<button class="btn" id="loginBtn">
+    Login
+</button>
+
+<p>
+Don't have an account?
+<a href="register.html">Create one</a>
+</p>
+
+</div>
+
+<script>
+
+document
+.getElementById("loginBtn")
+.addEventListener("click", async () => {
+
+    const email =
+        document.getElementById("email").value.trim();
+
+    const password =
+        document.getElementById("password").value;
+
+    const message =
+        document.getElementById("message");
+
+    const { error } =
+        await supabaseClient.auth.signInWithPassword({
+            email,
+            password
+        });
+
+    if (error) {
+
+        message.innerHTML =
+            `<div class="error">${escapeHTML(error.message)}</div>`;
+
+        return;
+    }
+
+    window.location.href = "index.html";
+});
+
+</script>
+
+</body>
+</html>
