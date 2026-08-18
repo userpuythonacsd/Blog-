@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Create Account</title>
+
+    <link rel="stylesheet" href="style.css">
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+</head>
+
+<body>
+
+<div class="auth-box card">
+
+    <h1>Create Account</h1>
+
+    <div id="message"></div>
+
+    <input id="displayName"
+           type="text"
+           maxlength="80"
+           placeholder="Display name">
+
+    <input id="email"
+           type="email"
+           maxlength="254"
+           placeholder="Email">
+
+    <input id="password"
+           type="password"
+           minlength="8"
+           placeholder="Password">
+
+    <button class="btn" id="registerBtn">
+        Create Account
+    </button>
+
+    <p>
+        Already have an account?
+        <a href="login.html">Login</a>
+    </p>
+
+</div>
+
+<script>
+
+document
+.getElementById("registerBtn")
+.addEventListener("click", async () => {
+
+    const displayName =
+        document.getElementById("displayName").value.trim();
+
+    const email =
+        document.getElementById("email").value.trim();
+
+    const password =
+        document.getElementById("password").value;
+
+    const message =
+        document.getElementById("message");
+
+    message.textContent = "";
+
+    if (!displayName || !email || !password) {
+        message.innerHTML =
+            '<div class="error">All fields are required.</div>';
+        return;
+    }
+
+    if (password.length < 8) {
+        message.innerHTML =
+            '<div class="error">Password must be at least 8 characters.</div>';
+        return;
+    }
+
+    const { error } =
+        await supabaseClient.auth.signUp({
+            email,
+            password,
+            options: {
+                data: {
+                    display_name: displayName
+                }
+            }
+        });
+
+    if (error) {
+        message.innerHTML =
+            `<div class="error">${escapeHTML(error.message)}</div>`;
+        return;
+    }
+
+    message.innerHTML =
+        '<div class="success">Account created. Check your email if email confirmation is enabled.</div>';
+});
+
+</script>
+
+</body>
+</html>
