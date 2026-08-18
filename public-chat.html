@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport"
+      content="width=device-width, initial-scale=1">
+
+<title>Public Chat</title>
+
+<link rel="stylesheet" href="style.css">
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script src="config.js"></script>
+<script src="common.js"></script>
+
+</head>
+
+<body>
+
+<nav class="navbar">
+
+<div class="logo">
+MyBlog
+</div>
+
+<div class="nav-links">
+<a href="index.html">Home</a>
+<a href="users.html">Users</a>
+<a href="profile.html">Profile</a>
+</div>
+
+</nav>
+
+<main class="container">
+
+<div class="card">
+
+<h1>Public Chat</h1>
+
+<div id="chat"
+     class="chat-box">
+Loading...
+</div>
+
+<input
+    id="message"
+    maxlength="2000"
+    placeholder="Write a public message...">
+
+<button
+    id="send"
+    class="btn">
+Send
+</button>
+
+</div>
+
+</main>
+
+<script>
+
+let currentUser;
+
+async function initialize() {
+
+    currentUser =
+        await requireUser();
+
+    if (!currentUser) return;
+
+    await loadMessages();
+
+    supabaseClient
+    .channel("public-chat")
+    .on(
+        "postgres_changes",
+        {
+            event: "INSERT",
+            schema: "public",
+            table: "public_messages"
+        },
+        () => {
+            loadMessages();
+        }
+    )
+    .subscribe();
+}
+
+async function loadMessages() {
+
+    const { data, error } =
+        await supabaseClient
+        .from("public_messages")
+        .select(`
+            id,
+            sender_id,
+            content,
+            created_at,
+            profiles (
+                username,
+                display_name
+            )
+        `)
+        .order("created_at", {
+            ascending: true
+        })
+        .limit(200);
+
+    if (error) {
+
+        console.error(error);
+        return;
+    }
+
+    const chat =
+        document.getElementById("chat");
+
+    chat.innerHTML = "";
+
+    data.forEach(message => {
+
+        const div =
+            document.createElement("div");
+
+        div.className =
+            "message";
+
+        const name =
+            message.profiles?.display_name ||
+            message.profiles?.username ||
+            "User";
+
+        div.innerHTML = `
+
+            <strong>
+                ${escapeHTML(name)}
+            </strong>
+
+            <div>
+                ${escapeHTML(message.content)}
+            </div>
+
+            <small>
+                ${escapeHTML(formatDate(message.created_at))}
+            </small>
+
+        `;
+
+        chat.appendChild(div);
+    });
+
+    chat.scrollTop =
+        chat.scrollHeight;
+}
+
+async function sendMessage() {
+
+    const input =
+        document.getElementById("message");
+
+    const content =
+        input.value.trim();
+
+    if (!content) return;
+
+    const { error } =
+        await supabaseClient
+        .from("public_messages")
+        .insert({
+            sender_id: currentUser.id,
+            content
+        });
+
+    if (error) {
+
+        console.error(error);
+        return;
+    }
+
+    input.value = "";
+}
+
+document
+.getElementById("send")
+.addEventListener(
+    "click",
+    sendMessage
+);
+
+document
+.getElementById("message")
+.addEventListener(
+    "keydown",
+    event => {
+
+        if (event.key === "Enter") {
+            sendMessage();
+        }
+
+    }
+);
+
+initialize();
+
+</script>
+
+</body>
+</html>
