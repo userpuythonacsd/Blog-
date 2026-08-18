@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport"
+      content="width=device-width, initial-scale=1">
+
+<title>Users</title>
+
+<link rel="stylesheet" href="style.css">
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script src="config.js"></script>
+<script src="common.js"></script>
+
+</head>
+
+<body>
+
+<nav class="navbar">
+
+<div class="logo">MyBlog</div>
+
+<div class="nav-links">
+<a href="index.html">Home</a>
+<a href="profile.html">Profile</a>
+<a href="public-chat.html">Public Chat</a>
+</div>
+
+</nav>
+
+<main class="container">
+
+<h1>Users</h1>
+
+<div id="users" class="user-list">
+Loading...
+</div>
+
+</main>
+
+<script>
+
+let currentUser;
+
+async function loadUsers() {
+
+    currentUser = await getCurrentUser();
+
+    const { data: users, error } =
+        await supabaseClient
+        .from("profiles")
+        .select("*")
+        .order("created_at", {
+            ascending: false
+        });
+
+    if (error) {
+
+        document.getElementById("users").innerHTML =
+            `<div class="error">${escapeHTML(error.message)}</div>`;
+
+        return;
+    }
+
+    const container =
+        document.getElementById("users");
+
+    container.innerHTML = "";
+
+    for (const user of users) {
+
+        if (currentUser && user.id === currentUser.id) {
+            continue;
+        }
+
+        const { data: follow } =
+            currentUser
+            ? await supabaseClient
+                .from("follows")
+                .select("*")
+                .eq("follower_id", currentUser.id)
+                .eq("following_id", user.id)
+                .maybeSingle()
+            : { data: null };
+
+        const item =
+            document.createElement("div");
+
+        item.className = "user-item";
+
+        item.innerHTML = `
+            <div>
+                <strong>
+                    ${escapeHTML(user.display_name)}
+                </strong>
+
+                <div class="meta">
+                    @${escapeHTML(user.username)}
+                </div>
+            </div>
+
+            <button class="btn">
+                ${follow ? "Unfollow" : "Follow"}
+            </button>
+        `;
+
+        item
+        .querySelector("button")
+        .addEventListener("click", async () => {
+
+            if (!currentUser) {
+
+                window.location.href =
+                    "login.html";
+
+                return;
+            }
+
+            if (follow) {
+
+                await supabaseClient
+                .from("follows")
+                .delete()
+                .eq("follower_id", currentUser.id)
+                .eq("following_id", user.id);
+
+            } else {
+
+                await supabaseClient
+                .from("follows")
+                .insert({
+                    follower_id: currentUser.id,
+                    following_id: user.id
+                });
+            }
+
+            loadUsers();
+        });
+
+        container.appendChild(item);
+    }
+}
+
+loadUsers();
+
+</script>
+
+</body>
+</html>
